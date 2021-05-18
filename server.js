@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 
 //--------------------------------------------------------------------
 
-mongoose.connect("mongodb+srv://user1:user1@cluster0.tcl4l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
+mongoose.connect("mongodb+srv://user1:user1@cluster0.tcl4l.mongodb.net/myDatabase?retryWrites=true&w=majority"
 , { useNewUrlParser: true, useUnifiedTopology: true });
 
 var personSchema=new mongoose.Schema({
