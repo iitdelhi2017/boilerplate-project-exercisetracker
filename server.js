@@ -52,7 +52,11 @@ var add_exercise=(req,res)=>{
 
   Person.findOne({"_id":req.body[':_id']},function(err,person){
     if(err) console.error(err);
-    
+    if(person==null){
+      var result="Cast to ObjectId failed for value \""+req.body[':_id']+"\" at path \"_id\" for model \"Person\"";
+      res.send(result);
+      return;
+    };
     person.exercise.push(info);
     person.save(function(err,data){
       if(err) console.error(err);
