@@ -14,60 +14,82 @@ app.get('/', (req, res) => {
 
 //--------------------------------------------------------------------
 
-mongoose.connect("mongodb+srv://user1:user1@cluster0.tcl4l.mongodb.net/myDatabase?retryWrites=true&w=majority"
+mongoose.connect("mongodb+srv://user1:user1@cluster0.tcl4l.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
 , { useNewUrlParser: true, useUnifiedTopology: true });
 
 var personSchema=new mongoose.Schema({
   username: String,
   exercise:[{
     date:Number,
-    dur:Number,
+    dur:String,
     des:String
   }]
 });
 
 var Person=mongoose.model('Person',personSchema);
 
+Person.remove({},function(err,data){
+  if(err) console.error(err);
+});
+
 app.use(bodyParser.urlencoded({extended:false}));
 
 const day=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const month=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-var add_user=function(req,res,done){
+var add_user=function(req,res){
   var person=new Person({username:req.body.username});
   person.save(function(err,data){
-      if(err) return done(err);
+      if(err) console.error(err);
       res.json({"username":data.username,"_id":data._id});
   });
 };
 
 var add_exercise=(req,res)=>{
+  if(req.params._id==undefined)
+  {
+    res.send('not found');return;
+  }
+  else if(req.body.description==undefined){
+    res.send('Path \`description\` is required');
+    return;
+  }
+  else if(req.body.duration==undefined)
+  {
+    res.send('Path \`duration\` is required');
+    return;
+  };
   var info={date:req.body.date,dur:req.body.duration,des:req.body.description};
-  if(info.date==''){
+  if(info.date==undefined || info.date==''){
     info.date=(+new Date());
   }
   else{
-    info.date=Date.parse(req.body.date);
+    info.date=Date.parse(req.body.date.toString());
   };
-
-  Person.findOne({"_id":req.body[':_id']},function(err,person){
+  
+  Person.findOne({"_id":req.params._id},function(err,person){
+    
     if(err) console.error(err);
     if(person==null){
-      var result="Cast to ObjectId failed for value \""+req.body[':_id']+"\" at path \"_id\" for model \"Person\"";
+      var result="Cast to ObjectId failed for value \""+req.params._id+"\" at path \"_id\" for model \"Person\"";
       res.send(result);
       return;
     };
+  
     person.exercise.push(info);
     person.save(function(err,data){
       if(err) console.error(err);
-      console.log(data);
       var stamp=new Date(parseInt(info.date));
-      var date_format=day[stamp.getDay()]+" "+month[stamp.getMonth()]+" "+(stamp.getDate()).toString()+" "+(stamp.getFullYear()).toString();
+      var date_format=day[stamp.getDay()]+" "+month[stamp.getMonth()]+" ";var d=stamp.getDate();
+      if(d<10)
+        d="0"+(stamp.getDate()).toString();
+      else d=d.toString();
+      date_format+=d+" "+(stamp.getFullYear()).toString();
       var result={
-        "_id":data._id,
+        "_id":req.params._id,
         "username":data.username,
         "date":date_format,
-        "duration":info.dur,
+        "duration":parseInt(info.dur),
         "description":info.des
       };
       res.json(result);
@@ -76,12 +98,22 @@ var add_exercise=(req,res)=>{
 };
 
 var user_log=function(req,res){
+      console.log(req.query);
+
   Person.findOne({_id:req.params._id},function(err,data){
     if(err) console.error(err);
     var logs=[];
+    if(data.exercise.length>0)
     for(var i=data.exercise.length-1;i>=0;i--){
+      if(req.query.limit!=undefined && logs.length>=parseInt(req.query.limit))
+        break;
+      if(req.query.from!=undefined && req.query.to!=undefined && (data.exercise[i].date<Date.parse(req.query.from) || data.exercise[i].date>Date.parse(req.query.to)))
+        continue;
       var stamp=new Date(parseInt(data.exercise[i].date));
-      var date_format=day[stamp.getDay()]+" "+month[stamp.getMonth()]+" "+(stamp.getDate()).toString()+" "+(stamp.getFullYear()).toString();
+      var date_format=day[stamp.getDay()]+" "+month[stamp.getMonth()]+" ";
+      var d=(stamp.getDate()).toString();
+      if(d.length==1)d="0"+d;
+      date_format+=d+" "+(stamp.getFullYear()).toString();
       logs.push({"description":data.exercise[i].des,"duration":data.exercise[i].dur,"date":date_format})
     };
 
@@ -91,6 +123,7 @@ var user_log=function(req,res){
       "count":logs.length,
       "log":logs
     };
+    console.log(result);
     res.json(result);
   });
 };
@@ -108,7 +141,6 @@ app.post('/api/users',add_user);
 app.post('/api/users/:_id/exercises',add_exercise);
 app.get('/api/users/:_id/logs',user_log);
 app.get('/api/users',all_users);
-
 //-------------------------------------------------------------------------
 
 
